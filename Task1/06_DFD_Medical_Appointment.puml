@@ -1,0 +1,37 @@
+@startuml
+title DFD: Медицинский прием (As-Is с мерами защиты)
+
+actor Patient
+actor Doctor
+database "Medical Records" as MR
+database "Lab Registry" as LR
+actor "External Lab" as Lab
+
+Patient -> Doctor : Жалобы, анамнез\n[УСТНО, незащищено]
+Doctor -> MR : Чтение истории\n[БЕЗ AUDIT]\n**НУЖНО: Audit + ABAC**
+MR -> Doctor : Предыдущие записи\n[КРИТИЧНЫЕ ДАННЫЕ]
+Doctor -> MR : Диагноз, назначения\n[БЕЗ ШИФРОВАНИЯ]\n**НУЖНО: AES-256 + digital signature**
+Doctor -> Lab : Направление на анализы\n[КАНАЛ НЕИЗВЕСТЕН]\n**НУЖНО: VPN/TLS**
+Lab -> LR : Результаты\n[БЕЗ ЗАЩИТЫ]\n**НУЖНО: VPN + шифрование**
+
+note right of MR
+  МЕРЫ ЗАЩИТЫ:
+  - AES-256 шифрование
+  - ABAC: только лечащий врач
+  - Полный audit
+  - Digital signatures
+  - DLP контроль
+end note
+
+note bottom of Lab
+  КРИТИЧЕСКАЯ ПРОБЛЕМА:
+  Канал не определен
+  
+  РЕШЕНИЕ:
+  - VPN туннель
+  - TLS 1.3
+  - Договор на обработку ПД
+end note
+
+@enduml
+

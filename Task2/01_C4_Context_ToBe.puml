@@ -1,0 +1,51 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title C4 Context: Целевое состояние системы "Медикаменте" (To-Be)
+
+Person(patient, "Пациент", "Субъект персональных данных")
+Person(doctor, "Врач", "Обрабатывает медицинские данные")
+Person(receptionist, "Ресепшен", "Регистрация и запись")
+Person(analyst, "Аналитик", "Работает с обезличенными данными")
+
+System_Boundary(med_system, "Медицинская информационная система") {
+    System(patient_portal, "Портал пациента", "Самозапись, DSAR, согласия")
+    System(clinical_system, "Клиническая система", "EMR, назначения, медкарты")
+    System(privacy_layer, "Privacy Layer", "Шифрование, обезличивание, контроль доступа")
+    System(analytics_platform, "Аналитическая платформа", "Обезличенные данные, BI")
+}
+
+System_Ext(lab, "Внешняя лаборатория", "Анализы")
+System_Ext(payment, "Платежная система", "Эквайринг")
+
+Rel(patient, patient_portal, "Записьна прием, просмотр данных", "HTTPS + 2FA")
+Rel(patient_portal, privacy_layer, "Запросы", "TLS 1.3 + JWT")
+Rel(privacy_layer, clinical_system, "Зашифрованные данные", "Internal API")
+
+Rel(doctor, clinical_system, "Работа с медкартами", "HTTPS + 2FA + ABAC")
+Rel(clinical_system, privacy_layer, "Все операции через Privacy Layer")
+
+Rel(receptionist, clinical_system, "Регистрация, запись", "HTTPS + 2FA + RBAC")
+
+Rel(analyst, analytics_platform, "BI отчеты", "HTTPS + RBAC")
+Rel(analytics_platform, privacy_layer, "Запрос обезличенных данных", "Internal API")
+
+Rel(clinical_system, lab, "Направления", "VPN + TLS")
+Rel(lab, clinical_system, "Результаты", "VPN + TLS")
+
+Rel(patient, payment, "Оплата", "PCI DSS")
+Rel(payment, clinical_system, "Подтверждение", "Webhook HTTPS")
+
+note right of privacy_layer
+  PRIVACY BY DESIGN ПРИНЦИПЫ:
+  1. Proactive not Reactive
+  2. Privacy as Default
+  3. Privacy Embedded
+  4. Full Functionality
+  5. End-to-End Security
+  6. Visibility and Transparency
+  7. Respect for User Privacy
+end note
+
+@enduml
+

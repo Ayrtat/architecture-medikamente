@@ -1,0 +1,106 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title C4 Container: Архитектура с Privacy by Design
+
+Person(patient, "Пациент")
+Person(doctor, "Врач")
+Person(analyst, "Аналитик")
+
+System_Boundary(system, "Медицинская ИС") {
+    
+    Container_Boundary(frontend, "Frontend Layer") {
+        Container(web_app, "Web Application", "React", "SPA с маскированием ПД")
+        Container(mobile_app, "Mobile App", "React Native", "Пациентский портал")
+    }
+    
+    Container_Boundary(api, "API Layer") {
+        Container(api_gateway, "API Gateway", "Kong/APIGEE", "Auth, Rate limiting, Audit")
+    }
+    
+    Container_Boundary(privacy, "Privacy Layer (КЛЮЧЕВОЙ)") {
+        Container(encryption_service, "Encryption Service", "Java", "AES-256, KMS integration")
+        Container(anonymization_service, "Anonymization Service", "Python", "K-anonymity, Differential Privacy")
+        Container(access_control, "Access Control Service", "Java", "RBAC/ABAC, Policy Engine")
+        Container(audit_service, "Audit Service", "Go", "Полное логирование")
+        Container(consent_mgmt, "Consent Management", "Java", "Управление согласиями")
+        Container(dsar_service, "DSAR Service", "Java", "Права субъектов данных")
+    }
+    
+    Container_Boundary(business, "Business Logic Layer") {
+        Container(patient_service, "Patient Service", "Java", "Управление пациентами")
+        Container(emr_service, "EMR Service", "Java", "Электронные медкарты")
+        Container(appointment_service, "Appointment Service", "Java", "Запись на прием")
+        Container(billing_service, "Billing Service", "Java", "Финансы")
+    }
+    
+    Container_Boundary(data, "Data Layer") {
+        ContainerDb(primary_db, "Primary DB", "PostgreSQL", "Зашифрованные ПД")
+        ContainerDb(analytics_db, "Analytics DB", "ClickHouse", "Обезличенные данные")
+        ContainerDb(audit_db, "Audit DB", "Elasticsearch", "Логи доступа")
+        ContainerDb(kms, "Key Management", "Vault", "Ключи шифрования")
+    }
+    
+    Container_Boundary(analytics_layer, "Analytics Layer с Privacy") {
+        Container(etl, "ETL Pipeline", "Apache NiFi", "Обезличивание при загрузке")
+        Container(data_catalog, "Data Catalog", "Apache Atlas", "Метаданные, lineage, теги")
+        Container(anonymizer, "Data Anonymizer", "ARX", "K-anonymity, L-diversity")
+        Container(bi_service, "BI Service", "Superset", "Визуализация")
+    }
+}
+
+System_Ext(lab, "Лаборатория", "VPN")
+System_Ext(siem, "SIEM", "Graylog")
+
+Rel(patient, mobile_app, "HTTPS + 2FA")
+Rel(doctor, web_app, "HTTPS + 2FA")
+Rel(analyst, bi_service, "HTTPS + RBAC")
+
+Rel(web_app, api_gateway, "HTTPS")
+Rel(mobile_app, api_gateway, "HTTPS")
+
+Rel(api_gateway, access_control, "Проверка прав", "gRPC")
+Rel(api_gateway, audit_service, "Логирование", "async")
+
+Rel(access_control, patient_service, "После проверки")
+Rel(patient_service, encryption_service, "Шифрование/дешифрование")
+Rel(encryption_service, kms, "Получение ключей")
+Rel(patient_service, primary_db, "CRUD")
+
+Rel(emr_service, encryption_service, "Все данные через Privacy Layer")
+Rel(emr_service, consent_mgmt, "Проверка согласий")
+
+Rel(etl, emr_service, "Извлечение данных для аналитики")
+Rel(etl, anonymizer, "Обезличивание")
+Rel(anonymizer, analytics_db, "Загрузка обезличенных")
+Rel(etl, data_catalog, "Регистрация lineage")
+
+Rel(bi_service, analytics_db, "Только обезличенные")
+
+Rel(audit_service, audit_db, "Все события")
+Rel(audit_service, siem, "Алерты", "Syslog")
+
+Rel(emr_service, lab, "VPN + TLS")
+
+note right of privacy
+  PRIVACY BY DESIGN:
+  - Шифрование по умолчанию
+  - Минимизация данных
+  - Полный audit
+  - Согласия пациентов
+  - DSAR автоматизация
+  - Обезличивание для аналитики
+end note
+
+note right of analytics_layer
+  ANALYTICS С PRIVACY:
+  - Обезличивание при загрузке
+  - K-anonymity (k>=10)
+  - Differential Privacy
+  - Data Lineage tracking
+  - Теги конфиденциальности
+  - Нет доступа к исходным ПД
+end note
+
+@enduml
+
