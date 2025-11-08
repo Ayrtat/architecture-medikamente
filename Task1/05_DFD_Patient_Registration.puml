@@ -1,0 +1,37 @@
+@startuml
+title DFD: Регистрация пациента (As-Is с мерами защиты)
+
+actor Patient
+actor Admin
+database "Patients.xlsx" as DB1
+database "Patient Folder" as DB2
+database "Contracts" as DB3
+
+Patient -> Admin : ФИО, ДР, паспорт\n[НЕЗАЩИЩЕНО]
+Admin -> DB1 : Запись данных\n[БЕЗ ШИФРОВАНИЯ]\n**НУЖНО: AES-256**
+Admin -> DB2 : Создание папки\nФИО в названии\n**НУЖНО: UUID**
+Admin -> DB3 : Скан контракта\n[БЕЗ ШИФРОВАНИЯ]\n**НУЖНО: AES-256 + watermark**
+
+note right of DB1
+  ПРОБЛЕМЫ:
+  - Нет шифрования
+  - Избыточный доступ
+  - Нет аудита
+  
+  МЕРЫ:
+  - BitLocker
+  - RBAC
+  - Audit logging
+end note
+
+note right of DB2
+  ПРОБЛЕМЫ:
+  - ФИО в названии
+  
+  МЕРЫ:
+  - UUID вместо ФИО
+  - EFS шифрование
+end note
+
+@enduml
+

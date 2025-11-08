@@ -1,0 +1,37 @@
+@startuml
+title DFD: Обработка платежей (As-Is с мерами защиты)
+
+actor Patient
+actor Cashier
+actor Bookkeeper
+database "Excel" as Excel
+database "1C" as OneC
+database "KKM" as KKM
+
+Patient -> Cashier : Оплата
+Cashier -> KKM : Прием платежа\n[ФИО в чеке]\n**НУЖНО: UUID**
+KKM -> OneC : TCP/IP + OLE\n[ЧАСТИЧНО ЗАЩИЩЕНО]
+Cashier -> Excel : Ручная запись\n[ДВОЙНАЯ ЗАПИСЬ]\n**УСТРАНИТЬ**
+Bookkeeper -> Excel : Чтение\n[БЕЗ ЗАЩИТЫ]
+Bookkeeper -> OneC : Сверка\n[РУЧНАЯ]
+
+note right of Excel
+  ПРОБЛЕМА:
+  Двойная запись
+  
+  РЕШЕНИЕ:
+  - Убрать Excel
+  - Автоматизация
+  - Единый источник истины (1С)
+end note
+
+note right of OneC
+  МЕРЫ:
+  - Миграция в клиент-серверный режим
+  - TDE шифрование
+  - RBAC
+  - Audit
+end note
+
+@enduml
+

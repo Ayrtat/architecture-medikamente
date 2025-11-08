@@ -1,0 +1,37 @@
+@startuml
+!define RECTANGLE class
+
+title Контекстная DFD с мерами безопасности
+
+rectangle "Система Медикаменте\n\nMEASURES:\n- AES-256 encryption\n- RBAC/ABAC\n- SIEM logging\n- DLP" as System
+
+actor "Пациенты" as P
+actor "Врачи" as D
+actor "Сотрудники" as S
+actor "Лаборатория" as L
+
+P -> System : ПД + медданные\n[НУЖНО: 2FA, HTTPS]
+System -> P : Результаты, рецепты\n[НУЖНО: Шифрование]
+
+D -> System : Медзаписи\n[НУЖНО: ABAC + audit]
+System -> D : Медкарты\n[НУЖНО: Шифрование + DLP]
+
+S -> System : Операционные данные\n[НУЖНО: RBAC]
+System -> S : Отчеты\n[НУЖНО: Обезличивание]
+
+System -> L : Направления\n[НУЖНО: VPN]
+L -> System : Результаты\n[НУЖНО: VPN + TLS]
+
+note bottom of System
+КРИТИЧЕСКИЕ МЕРЫ:
+1. Шифрование at rest (BitLocker)
+2. Шифрование in transit (TLS/VPN)
+3. RBAC/ABAC контроль
+4. Полный audit (SIEM)
+5. DLP система
+6. 2FA для всех
+7. Обезличивание для аналитики
+end note
+
+@enduml
+

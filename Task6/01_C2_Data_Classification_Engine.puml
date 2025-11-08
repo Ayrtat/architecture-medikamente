@@ -1,0 +1,132 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title C2 Component: Движок классификации данных
+
+Container_Boundary(source_systems, "Источники данных") {
+    Component(emr, "EMR Service", "Java", "Медицинские карты")
+    Component(patient_service, "Patient Service", "Java", "Данные пациентов")
+    Component(billing, "Billing Service", "Java", "Финансы")
+}
+
+Container_Boundary(classification_engine, "DATA CLASSIFICATION ENGINE") {
+    
+    Component_Boundary(ingestion, "Ingestion Layer") {
+        Component(data_collector, "Data Collector", "Apache NiFi", "Сбор данных из источников")
+        Component(schema_detector, "Schema Detector", "Python", "Определение структуры данных")
+        Component(change_detector, "Change Detector", "Debezium CDC", "Отслеживание изменений схемы")
+    }
+    
+    Component_Boundary(classification, "Classification Layer") {
+        Component(content_scanner, "Content Scanner", "Python + ML", "Сканирование содержимого")
+        Component(pattern_matcher, "Pattern Matcher", "Regex Engine", "Поиск ПД по паттернам")
+        Component(ml_classifier, "ML Classifier", "TensorFlow", "ML классификация текста")
+        Component(sensitivity_scorer, "Sensitivity Scorer", "Python", "Оценка чувствительности")
+        Component(tag_manager, "Tag Manager", "Java", "Присвоение тегов")
+    }
+    
+    Component_Boundary(anonymization, "Anonymization Layer") {
+        Component(anonymizer, "Anonymizer", "ARX", "K-anonymity, L-diversity")
+        Component(masker, "Data Masker", "Java", "Маскирование ПД")
+        Component(tokenizer, "Tokenizer", "Vault API", "Токенизация")
+        Component(pseudonymizer, "Pseudonymizer", "Python", "Псевдонимизация")
+    }
+    
+    Component_Boundary(storage_prep, "Storage Preparation Layer") {
+        Component(data_partitioner, "Data Partitioner", "Python", "Разделение по уровням конфиденциальности")
+        Component(encryption_service, "Encryption Service", "Java", "Шифрование перед загрузкой")
+        Component(lineage_tracker, "Lineage Tracker", "Atlas API", "Регистрация происхождения")
+    }
+    
+    Component_Boundary(quality, "Quality & Validation") {
+        Component(validator, "Data Validator", "Great Expectations", "Проверка качества")
+        Component(compliance_checker, "Compliance Checker", "Python", "Проверка соответствия политикам")
+    }
+}
+
+ContainerDb(catalog, "Data Catalog", "Apache Atlas", "Метаданные, теги, lineage")
+ContainerDb(policy_db, "Policy Store", "PostgreSQL", "Политики классификации")
+ContainerDb(vault, "Vault", "HashiCorp", "Ключи, токены")
+
+Container_Boundary(analytics_dwh, "Аналитическое хранилище") {
+    ContainerDb(raw_zone, "RAW Zone", "ClickHouse", "Исходные данные (зашифрованы)")
+    ContainerDb(sensitive_zone, "SENSITIVE Zone", "ClickHouse", "L3-L4 данные (ограниченный доступ)")
+    ContainerDb(anonymized_zone, "ANONYMIZED Zone", "ClickHouse", "Обезличенные данные (L1-L2)")
+    ContainerDb(public_zone, "PUBLIC Zone", "ClickHouse", "Агрегаты для BI")
+}
+
+Component(monitoring, "Monitoring Service", "Prometheus", "Метрики классификации")
+
+' Data Flow
+Rel(emr, data_collector, "Извлечение данных", "REST API")
+Rel(patient_service, data_collector, "Извлечение данных", "REST API")
+Rel(billing, data_collector, "Извлечение данных", "REST API")
+
+Rel(data_collector, schema_detector, "Данные + схема")
+Rel(schema_detector, change_detector, "Изменения структуры")
+Rel(change_detector, catalog, "Регистрация изменений")
+
+Rel(schema_detector, content_scanner, "Данные для анализа")
+Rel(content_scanner, pattern_matcher, "Текстовые поля")
+Rel(content_scanner, ml_classifier, "Неструктурированный текст")
+Rel(pattern_matcher, sensitivity_scorer, "Найденные ПД")
+Rel(ml_classifier, sensitivity_scorer, "Классификация")
+Rel(sensitivity_scorer, tag_manager, "Уровень конфиденциальности")
+
+Rel(tag_manager, catalog, "Регистрация тегов")
+Rel(tag_manager, policy_db, "Получение политик", "SQL")
+
+Rel(tag_manager, anonymizer, "L4 данные")
+Rel(tag_manager, masker, "L3 данные")
+Rel(tag_manager, tokenizer, "Финансовые номера")
+Rel(tag_manager, pseudonymizer, "ФИО, ID")
+
+Rel(tokenizer, vault, "Токенизация")
+
+Rel(anonymizer, data_partitioner, "Обезличенные L4->L2")
+Rel(masker, data_partitioner, "Маскированные L3")
+Rel(tokenizer, data_partitioner, "Токенизированные")
+Rel(pseudonymizer, data_partitioner, "Псевдонимизированные")
+
+Rel(data_partitioner, validator, "Проверка качества")
+Rel(validator, compliance_checker, "Проверка compliance")
+
+Rel(compliance_checker, encryption_service, "Одобренные данные")
+Rel(encryption_service, vault, "Получение ключей")
+
+Rel(encryption_service, raw_zone, "Исходные (зашифрованы)")
+Rel(data_partitioner, sensitive_zone, "L3-L4 (ограничен)")
+Rel(anonymizer, anonymized_zone, "Обезличенные L1-L2")
+Rel(anonymized_zone, public_zone, "Агрегация")
+
+Rel(encryption_service, lineage_tracker, "Регистрация загрузки")
+Rel(lineage_tracker, catalog, "Data Lineage")
+
+Rel(content_scanner, monitoring, "Метрики")
+Rel(anonymizer, monitoring, "Метрики обезличивания")
+Rel(validator, monitoring, "Метрики качества")
+
+note right of classification_engine
+  КЛЮЧЕВЫЕ ВОЗМОЖНОСТИ:
+  1. Автоматическое определение схемы
+  2. Content-based классификация (ML)
+  3. Pattern matching (regex для ПД)
+  4. Адаптация к изменениям структуры
+  5. Многоуровневое обезличивание
+  6. Data Lineage tracking
+  7. Compliance проверки
+end note
+
+note right of analytics_dwh
+  ЗОНЫ ХРАНИЛИЩА:
+  RAW: исходные, зашифрованные
+  SENSITIVE: L3-L4, RBAC
+  ANONYMIZED: L1-L2, для аналитики
+  PUBLIC: агрегаты, для всех
+  
+  Автоматическое разделение
+  на основе тегов классификации
+end note
+
+@enduml
+
